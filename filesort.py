@@ -3,6 +3,7 @@ import os
 import asyncio
 import aioshutil
 import configparser
+import shutil
 
 
 config_ini = configparser.ConfigParser()
@@ -21,9 +22,7 @@ rm_cmd = ""
 
 if not os.name == 'posix':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    rm_cmd = 'del'
-else:
-    rm_cmd = "rm"
+
 
 async def move_glob(tgt_path):
     tgt_file = os.path.basename(tgt_path)
@@ -31,25 +30,19 @@ async def move_glob(tgt_path):
         moved.append(tgt_file)
         await aioshutil.move(tgt_path, dst_path)
     else:
-        proc = await asyncio.subprocess.create_subprocess_shell(
-            '{} {}'.format(rm_cmd, tgt_path),
-            # stdout=asyncio.subprocess.PIPE, 
-            # stderr=asyncio.subprocess.PIPE
-            # To avoid Unicode error
-            stdout=None, stderr=None
-            )
-        stdout, stderr = await proc.communicate()
-        print("{} {} exited with {}".format(rm_cmd, tgt_path, proc.returncode))
-        # if stdout:
-        #     print(f'[stdout]\n{stdout.decode()}')
-        # if stderr:
-        #     print(f'[stderr]\n{stderr.decode()}')
-
+        idx = 0
+        for itempath in duplicated:
+            if os.path.basename(itempath) == tgt_file:
+                idx += 1
+        tgt_file = tgt_file + '_{:03}'.format(idx+1)
+        duplicated.append(tgt_path)
+        await aioshutil.move(tgt_path, os.path.join(rm_path, tgt_file))
+        
 
 async def main():
     for p in glob.glob(path, recursive=True):
         tasks.append(asyncio.create_task(move_glob(p)))
-        print("target file :{}".format(p))
+        #print("target file :{}".format(p))
     
     print("*"*5+"start program"+"*"*5)
 
@@ -67,5 +60,4 @@ if __name__ == "__main__":
     print("{} files are duplicate.".format(len(duplicated)))
     for file in duplicated:
         print("> {} duplicate.".format(file))
-    for file in moved:
-        print("> {} moved.".format(file))
+    print("{} files are moved.".format(len(moved)))
